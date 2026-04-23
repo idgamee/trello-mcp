@@ -342,4 +342,20 @@ app.get("/", (_req, res) =>
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Trello MCP server rodando na porta ${PORT}`);
+
+  const rawKey   = process.env.TRELLO_API_KEY   ?? "";
+  const rawToken = process.env.TRELLO_TOKEN      ?? "";
+  const trimKey   = rawKey.trim();
+  const trimToken = rawToken.trim();
+
+  const mask = (s) => s.length >= 10
+    ? `${s.slice(0, 5)}...${s.slice(-5)} (len=${s.length})`
+    : `[muito curto: len=${s.length}]`;
+
+  console.log(`[DIAG] TRELLO_API_KEY   raw  : ${mask(rawKey)}`);
+  console.log(`[DIAG] TRELLO_API_KEY   trim : ${mask(trimKey)}`);
+  console.log(`[DIAG] TRELLO_TOKEN     raw  : ${mask(rawToken)}`);
+  console.log(`[DIAG] TRELLO_TOKEN     trim : ${mask(trimToken)}`);
+  console.log(`[DIAG] raw===trim key   : ${rawKey === trimKey}`);
+  console.log(`[DIAG] raw===trim token : ${rawToken === trimToken}`);
 });
