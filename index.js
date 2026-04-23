@@ -150,6 +150,31 @@ function createMcpServer() {
           required: ["card_id", "list_id"],
         },
       },
+      {
+        name: "update_card",
+        description: "Atualiza nome e/ou data de vencimento de um card do Trello",
+        inputSchema: {
+          type: "object",
+          properties: {
+            card_id: { type: "string", description: "ID do card" },
+            name: { type: "string", description: "Novo nome do card (opcional)" },
+            due: { type: "string", description: "Data de vencimento em ISO 8601, ex: 2025-12-31T23:59:00.000Z (opcional)" },
+          },
+          required: ["card_id"],
+        },
+      },
+      {
+        name: "set_card_label",
+        description: "Adiciona uma etiqueta a um card do Trello",
+        inputSchema: {
+          type: "object",
+          properties: {
+            card_id: { type: "string", description: "ID do card" },
+            label_id: { type: "string", description: "ID da etiqueta (idLabel) a adicionar" },
+          },
+          required: ["card_id", "label_id"],
+        },
+      },
     ],
   }));
 
@@ -181,6 +206,18 @@ function createMcpServer() {
         case "move_card": {
           const card = await trelloRequest(`/cards/${args.card_id}`, "PUT", { idList: args.list_id });
           return { content: [{ type: "text", text: `Card "${card.name}" movido para lista ${args.list_id}.` }] };
+        }
+        case "update_card": {
+          const body = {};
+          if (args.name) body.name = args.name;
+          if (args.due) body.due = args.due;
+          if (Object.keys(body).length === 0) throw new Error("Informe ao menos name ou due para atualizar.");
+          const card = await trelloRequest(`/cards/${args.card_id}`, "PUT", body);
+          return { content: [{ type: "text", text: `Card "${card.name}" atualizado.\nDue: ${card.due ?? "sem prazo"}\nURL: ${card.url}` }] };
+        }
+        case "set_card_label": {
+          await trelloRequest(`/cards/${args.card_id}/idLabels`, "POST", { value: args.label_id });
+          return { content: [{ type: "text", text: `Etiqueta ${args.label_id} adicionada ao card ${args.card_id}.` }] };
         }
         default:
           throw new Error(`Ferramenta desconhecida: ${name}`);
