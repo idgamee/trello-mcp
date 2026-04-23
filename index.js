@@ -10,12 +10,10 @@ import {
 const TRELLO_BASE_URL = "https://api.trello.com/1";
 
 function getCredentials() {
-  const key = process.env.TRELLO_API_KEY;
-  const token = process.env.TRELLO_TOKEN;
+  const key = process.env.TRELLO_API_KEY?.trim();
+  const token = process.env.TRELLO_TOKEN?.trim();
   if (!key || !token) {
-    throw new Error(
-      "TRELLO_API_KEY e TRELLO_TOKEN são obrigatórias"
-    );
+    throw new Error("TRELLO_API_KEY e TRELLO_TOKEN são obrigatórias");
   }
   return { key, token };
 }
