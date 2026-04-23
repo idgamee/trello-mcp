@@ -236,9 +236,25 @@ app.get("/.well-known/oauth-protected-resource/mcp", (req, res) => {
 // ---------------------------------------------------------------------------
 app.post("/mcp", async (req, res) => {
   const message = req.body;
+  const acceptsSSE = (req.headers.accept || "").includes("text/event-stream");
+
+  const sendResponse = (statusCode, body) => {
+    if (statusCode !== 200) {
+      return res.status(statusCode).json(body);
+    }
+    if (acceptsSSE) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.write(`event: message\ndata: ${JSON.stringify(body)}\n\n`);
+      return res.end();
+    }
+    return res.json(body);
+  };
 
   if (!message || typeof message !== "object") {
-    return res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
+    return sendResponse(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
   }
 
   // Notificações (sem id) não precisam de resposta
@@ -254,10 +270,10 @@ app.post("/mcp", async (req, res) => {
     const responsePromise = transport.waitForResponse();
     transport.deliver(message);
     const response = await responsePromise;
-    res.json(response);
+    sendResponse(200, response);
   } catch (err) {
     console.error("Erro no request MCP:", err.message);
-    res.status(500).json({
+    sendResponse(500, {
       jsonrpc: "2.0",
       id: message?.id ?? null,
       error: { code: -32000, message: err.message },
