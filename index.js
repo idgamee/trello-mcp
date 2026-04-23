@@ -217,16 +217,82 @@ app.use((req, _res, next) => {
 
 // ---------------------------------------------------------------------------
 // OAuth Protected Resource Metadata — RFC 9728
-// claude.ai verifica este endpoint; sem authorization_servers = acesso público
+// Aponta authorization_servers para o próprio servidor (sem auth obrigatória)
 // ---------------------------------------------------------------------------
 app.get("/.well-known/oauth-protected-resource", (req, res) => {
-  const host = req.headers.host || req.hostname;
-  res.json({ resource: `https://${host}/mcp` });
+  const base = `https://${req.headers.host || req.hostname}`;
+  res.json({ resource: `${base}/mcp`, authorization_servers: [base] });
 });
 
 app.get("/.well-known/oauth-protected-resource/mcp", (req, res) => {
-  const host = req.headers.host || req.hostname;
-  res.json({ resource: `https://${host}/mcp` });
+  const base = `https://${req.headers.host || req.hostname}`;
+  res.json({ resource: `${base}/mcp`, authorization_servers: [base] });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth Authorization Server Metadata — RFC 8414
+// ---------------------------------------------------------------------------
+app.get("/.well-known/oauth-authorization-server", (req, res) => {
+  const base = `https://${req.headers.host || req.hostname}`;
+  res.json({
+    issuer: base,
+    authorization_endpoint: `${base}/authorize`,
+    token_endpoint: `${base}/token`,
+    registration_endpoint: `${base}/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    code_challenge_methods_supported: ["S256"],
+    token_endpoint_auth_methods_supported: ["none"],
+    scopes_supported: ["mcp"],
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dynamic Client Registration — RFC 7591
+// Aceita qualquer cliente sem validação (servidor público)
+// ---------------------------------------------------------------------------
+app.post("/register", (req, res) => {
+  const body = req.body || {};
+  res.status(201).json({
+    client_id: `client-${Date.now()}`,
+    client_id_issued_at: Math.floor(Date.now() / 1000),
+    redirect_uris: body.redirect_uris || [],
+    client_name: body.client_name || "MCP Client",
+    token_endpoint_auth_method: "none",
+    grant_types: ["authorization_code"],
+    response_types: ["code"],
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Authorization endpoint — auto-aprova e redireciona de volta imediatamente
+// (sem tela de login; o servidor não exige autenticação real)
+// ---------------------------------------------------------------------------
+app.get("/authorize", (req, res) => {
+  const { redirect_uri, state } = req.query;
+  if (!redirect_uri) {
+    return res.status(400).json({ error: "invalid_request", error_description: "missing redirect_uri" });
+  }
+  const dest = new URL(redirect_uri);
+  dest.searchParams.set("code", `code-${Date.now()}`);
+  if (state) dest.searchParams.set("state", state);
+  res.redirect(dest.toString());
+});
+
+// ---------------------------------------------------------------------------
+// Token endpoint — emite token de acesso estático (sem validação real)
+// ---------------------------------------------------------------------------
+app.post("/token", express.urlencoded({ extended: false }), (req, res) => {
+  const grantType = (req.body || {}).grant_type;
+  if (grantType !== "authorization_code") {
+    return res.status(400).json({ error: "unsupported_grant_type" });
+  }
+  res.json({
+    access_token: "mcp-public-token",
+    token_type: "Bearer",
+    expires_in: 31536000,
+    scope: "mcp",
+  });
 });
 
 // ---------------------------------------------------------------------------
